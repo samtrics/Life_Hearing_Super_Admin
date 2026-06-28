@@ -29,7 +29,7 @@ const ipRateLimit = new Map<string, { count: number, timestamp: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 5;
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   try {
     // 0. Strict Origin Validation (CSRF Protection)
     const origin = request.headers.get('origin') || '*';
@@ -180,6 +180,18 @@ export async function POST(request: Request) {
     console.error('Server error (masked for security):', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
+}
+
+export async function POST(request: Request) {
+  const response = await handlePOST(request);
+  const origin = request.headers.get('origin') || '*';
+  
+  response.headers.set('Access-Control-Allow-Origin', origin);
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Payload-Signature');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  
+  return response;
 }
 
 export async function OPTIONS(request: Request) {
