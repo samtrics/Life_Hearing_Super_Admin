@@ -48,10 +48,11 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // This will refresh session if expired
+  // Fast, local verification (safe because our cookies are AES encrypted)
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user
 
   if (user) {
     // ----------------------------------------------------

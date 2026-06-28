@@ -40,7 +40,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
           <main className="flex-1 overflow-auto">
-            <div className="container p-4 md:p-8 lg:p-10 mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="container p-4 md:p-8 lg:p-10 mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-300">
               {children}
             </div>
           </main>
