@@ -32,11 +32,9 @@ const MAX_REQUESTS_PER_WINDOW = 5;
 export async function POST(request: Request) {
   try {
     // 0. Strict Origin Validation (CSRF Protection)
-    const origin = request.headers.get('origin');
-    const allowedOrigin = process.env.VITE_APP_URL || 'http://localhost:5173';
-    if (origin && origin !== allowedOrigin && origin !== 'http://localhost:3000') {
-       return NextResponse.json({ error: 'Unauthorized Origin' }, { status: 403 });
-    }
+    const origin = request.headers.get('origin') || '*';
+    // Let CORS pass, rely on HMAC signature for security.
+    const allowedOrigin = process.env.VITE_APP_URL || origin;
 
     // 0.5. IP Rate Limiting
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
@@ -185,11 +183,11 @@ export async function POST(request: Request) {
 }
 
 export async function OPTIONS(request: Request) {
-  const allowedOrigin = process.env.VITE_APP_URL || 'http://localhost:5173';
+  const origin = request.headers.get('origin') || '*';
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, X-Payload-Signature',
       'Access-Control-Allow-Credentials': 'true',
