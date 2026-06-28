@@ -191,7 +191,13 @@ const ALLOWED_ORIGINS = ['https://life-hearing-care.vercel.app', 'http://localho
 
 function getCorsOrigin(request: Request) {
   const origin = request.headers.get('origin') || '';
-  if (ALLOWED_ORIGINS.includes(origin) || origin.startsWith('http://localhost:')) {
+  
+  // Allow exact matches, localhost, or Vercel preview deployments
+  if (
+    ALLOWED_ORIGINS.includes(origin) || 
+    origin.startsWith('http://localhost:') ||
+    (origin.startsWith('https://life-hearing-care') && origin.endsWith('.vercel.app'))
+  ) {
     return origin;
   }
   return ALLOWED_ORIGINS[0]; // Fallback to primary production domain
