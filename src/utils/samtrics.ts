@@ -36,13 +36,13 @@ export async function sendSamtricsAlert(eventType: string, severity: 'INFO' | 'W
     }).catch(() => {})
     
     // Also insert into the local database audit log
-    const supabase = await createClient()
-    await supabase.from('samtrics_audit_logs').insert([{
-      event_type: eventType,
-      severity: severity,
-      details: payload.details,
-      created_at: payload.timestamp
-    }])
+    // const supabase = await createClient()
+    // await supabase.from('samtrics_audit_logs').insert([{
+    //   event_type: eventType,
+    //   severity: severity,
+    //   details: payload.details,
+    //   created_at: payload.timestamp
+    // }])
   } catch (error) {
     console.error('Failed to send Samtrics alert', error)
   }

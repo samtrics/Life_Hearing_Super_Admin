@@ -185,13 +185,14 @@ export async function POST(request: Request) {
 }
 
 export async function OPTIONS(request: Request) {
+  const allowedOrigin = process.env.VITE_APP_URL || 'http://localhost:5173';
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': process.env.VITE_APP_URL || 'http://localhost:5173',
-      'Access-Control-Allow-Methods': 'GET,DELETE,PATCH,POST,PUT,OPTIONS',
-      'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Payload-Signature',
-      'Access-Control-Allow-Credentials': 'true'
+      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Payload-Signature',
+      'Access-Control-Allow-Credentials': 'true',
     },
   });
 }
