@@ -24,11 +24,6 @@ const bookingSchema = z.object({
   altPhone: z.string().optional().transform(sanitizeText)
 });
 
-// Basic in-memory rate limiting for IP addresses (Max 5 requests per minute per IP)
-const ipRateLimit = new Map<string, { count: number, timestamp: number }>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 5;
-
 async function handlePOST(request: Request) {
   try {
     // 0. Strict Origin Validation (CSRF Protection)
@@ -36,25 +31,27 @@ async function handlePOST(request: Request) {
     // Let CORS pass, rely on HMAC signature for security.
     const allowedOrigin = process.env.VITE_APP_URL || origin;
 
-    // 0.5. IP Rate Limiting
+    const supabase = await createClient();
+
+    // 0.5. IP Rate Limiting via Supabase
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     
     if (ip !== 'unknown') {
-      const now = Date.now();
-      const record = ipRateLimit.get(ip);
-      
-      if (record) {
-        if (now - record.timestamp < RATE_LIMIT_WINDOW_MS) {
-          if (record.count >= MAX_REQUESTS_PER_WINDOW) {
-            return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
-          }
-          record.count += 1;
-        } else {
-          ipRateLimit.set(ip, { count: 1, timestamp: now });
-        }
-      } else {
-        ipRateLimit.set(ip, { count: 1, timestamp: now });
+      const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+      const { count: requestCount, error: rateLimitError } = await supabase
+        .from('ip_rate_limits')
+        .select('*', { count: 'exact', head: true })
+        .eq('ip_address', ip)
+        .gte('request_timestamp', oneMinuteAgo);
+
+      if (rateLimitError) {
+        console.error('Rate limit check failed (Table may be missing):', rateLimitError.message);
+      } else if (requestCount !== null && requestCount >= 5) {
+        return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
       }
+
+      // Log this request
+      await supabase.from('ip_rate_limits').insert([{ ip_address: ip }]);
     }
     
     // 1. Read Raw Body (Ciphertext) & Verify HMAC Signature
@@ -65,7 +62,11 @@ async function handlePOST(request: Request) {
       return NextResponse.json({ error: 'Missing Payload Signature' }, { status: 400 });
     }
 
-    const secretKey = process.env.VITE_API_SECRET || "default_development_secret_key_123!";
+    const secretKey = process.env.VITE_API_SECRET;
+    if (!secretKey) {
+      console.error("CRITICAL: VITE_API_SECRET is not configured on the server.");
+      return NextResponse.json({ error: 'Internal Server Configuration Error' }, { status: 500 });
+    }
     const expectedSignature = CryptoJS.HmacSHA256(rawBody, secretKey).toString(CryptoJS.enc.Hex);
     
     if (signature !== expectedSignature) {
@@ -101,8 +102,6 @@ async function handlePOST(request: Request) {
       appointmentType, homeAddress, notes, altPhone
     } = parsed.data;
 
-    const supabase = await createClient();
-
     // 3. Check if number is blocked
     const { data: blockedNumber } = await supabase
       .from('blocked_numbers')
@@ -114,20 +113,26 @@ async function handlePOST(request: Request) {
       return NextResponse.json({ error: 'Booking restricted for this number.' }, { status: 403 });
     }
 
-    // 4. Duplicate check (no active appointment for phone)
+    // 4. Duplicate check (no active appointment for SAME phone AND SAME name)
     const { data: activeAppts } = await supabase
       .from('appointments')
       .select('id')
       .eq('phone', phone)
+      .eq('first_name', firstName)
+      .eq('last_name', lastName)
       .in('status', ['Pending', 'Confirmed'])
       .limit(1);
 
     if (activeAppts && activeAppts.length > 0) {
-      return NextResponse.json({ error: 'You already have an active appointment.' }, { status: 400 });
+      return NextResponse.json({ error: 'This patient already has an active appointment.' }, { status: 400 });
     }
 
     // 5. Rate Limiting (2 bookings per phone per day)
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Convert current UTC time to IST (+5:30) for accurate date checks in India
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istTime = new Date(now.getTime() + istOffset);
+    const todayStr = istTime.toISOString().split('T')[0];
     const { count } = await supabase
       .from('appointments')
       .select('*', { count: 'exact', head: true })
@@ -182,9 +187,19 @@ async function handlePOST(request: Request) {
   }
 }
 
+const ALLOWED_ORIGINS = ['https://life-hearing-care.vercel.app', 'http://localhost:5173'];
+
+function getCorsOrigin(request: Request) {
+  const origin = request.headers.get('origin') || '';
+  if (ALLOWED_ORIGINS.includes(origin) || origin.startsWith('http://localhost:')) {
+    return origin;
+  }
+  return ALLOWED_ORIGINS[0]; // Fallback to primary production domain
+}
+
 export async function POST(request: Request) {
   const response = await handlePOST(request);
-  const origin = request.headers.get('origin') || '*';
+  const origin = getCorsOrigin(request);
   
   response.headers.set('Access-Control-Allow-Origin', origin);
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -195,7 +210,7 @@ export async function POST(request: Request) {
 }
 
 export async function OPTIONS(request: Request) {
-  const origin = request.headers.get('origin') || '*';
+  const origin = getCorsOrigin(request);
   return new NextResponse(null, {
     status: 204,
     headers: {
