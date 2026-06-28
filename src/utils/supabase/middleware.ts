@@ -48,11 +48,15 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Fast, local verification (safe because our cookies are AES encrypted)
+  // Bypass auth checks entirely for public APIs to maximize performance
+  if (request.nextUrl.pathname.startsWith('/api/appointments')) {
+    return supabaseResponse
+  }
+
+  // Use getUser() to securely validate the session with the Supabase auth server
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const user = session?.user
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (user) {
     // ----------------------------------------------------
