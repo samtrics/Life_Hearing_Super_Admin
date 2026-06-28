@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { createClient } from '@/utils/supabase/client'
+import { fetchBackupData, fetchBackupStats } from '@/app/actions/backup'
 import CryptoJS from 'crypto-js'
 import { Database, Download, RefreshCw, CheckCircle2, Clock, AlertCircle, HardDrive } from 'lucide-react'
 
@@ -23,7 +23,7 @@ export default function BackupPage() {
   const [backupPassword, setBackupPassword] = useState('')
   const [stats, setStats] = useState({ appointments: 0, patients: 0, feedbacks: 0 })
 
-  const supabase = createClient()
+  // Using server actions instead of client supabase
 
   useEffect(() => {
     loadStats()
@@ -31,10 +31,7 @@ export default function BackupPage() {
   }, [])
 
   const loadStats = async () => {
-    const [{ count: apptCount }, { count: feedbackCount }] = await Promise.all([
-      supabase.from('appointments').select('*', { count: 'exact', head: true }),
-      supabase.from('patient_feedback').select('*', { count: 'exact', head: true }),
-    ])
+    const { appointments: apptCount, feedbacks: feedbackCount } = await fetchBackupStats()
     setStats({
       appointments: apptCount || 0,
       patients: apptCount || 0, // using distinct phone numbers as proxy
@@ -69,18 +66,8 @@ export default function BackupPage() {
 
     setGenerating(true)
     try {
-      // Fetch all data in parallel
-      const [
-        { data: appointments },
-        { data: patients },
-        { data: feedbacks },
-        { data: subscribers },
-      ] = await Promise.all([
-        supabase.from('appointments').select('*').order('appointment_date', { ascending: false }),
-        supabase.from('appointments').select('phone, first_name, last_name, email, age, gender').order('created_at', { ascending: false }),
-        supabase.from('patient_feedback').select('*').order('created_at', { ascending: false }),
-        supabase.from('newsletter_subscribers').select('*').order('created_at', { ascending: false }),
-      ])
+      // Fetch all data securely via Server Action
+      const { appointments, patients, feedbacks, subscribers } = await fetchBackupData()
 
       const backupData = {
         generated_at: new Date().toISOString(),

@@ -1,14 +1,19 @@
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Calendar as CalendarIcon, Clock, User, Phone, Search, FileText } from 'lucide-react'
+import { format } from 'date-fns'
+import Link from 'next/link'
 import { DataTable } from './data-table'
 
 export const metadata = {
   title: 'Appointments Management - Admin Secure',
 }
 
-export const revalidate = 30
+export const revalidate = 60 // ISR
 
 export default async function AppointmentsPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch all appointments, sorted by most recent date and time
   const { data: appointments, error } = await supabase

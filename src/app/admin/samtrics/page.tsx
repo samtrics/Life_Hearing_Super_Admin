@@ -1,8 +1,8 @@
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import os from 'os'
 
 export default async function SamtricsDashboard() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   
   const { data: logs } = await supabase
     .from('samtrics_audit_logs')

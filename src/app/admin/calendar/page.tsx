@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import CalendarClient from './CalendarClient'
 
 export const metadata = {
@@ -6,7 +6,7 @@ export const metadata = {
 }
 
 export default async function CalendarPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch all appointments for the calendar
   const { data: appointments, error } = await supabase

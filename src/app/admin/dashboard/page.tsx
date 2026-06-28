@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar, Clock, CheckCircle2, ListTodo } from 'lucide-react'
 import { isToday } from 'date-fns'
@@ -6,7 +6,7 @@ import { isToday } from 'date-fns'
 export const revalidate = 60  // revalidate at most every 60 seconds (ISR)
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch all appointments
   const { data: appointments, error } = await supabase

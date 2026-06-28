@@ -1,20 +1,21 @@
-import { createClient } from '@/utils/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Phone, Mail, Calendar, Activity, Search } from 'lucide-react'
+import { createAdminClient } from '@/utils/supabase/admin'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Users, Phone, Mail, Calendar, Activity, Search, ArrowRight, UserPlus } from 'lucide-react'
 import { PatientSearch } from './PatientSearch'
 import { Suspense } from 'react'
+import Link from 'next/link'
 
 export const metadata = {
   title: 'Patient Directory - Admin Secure',
 }
 
-export const revalidate = 30
+export const revalidate = 60
 
 export default async function PatientsPage(props: any) {
   const searchParams = await props.searchParams
   const q = searchParams?.q?.toLowerCase() || ''
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch all unique patients by email/phone from appointments table
   const { data: appointments, error } = await supabase

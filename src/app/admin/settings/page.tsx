@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ export const metadata = {
 }
 
 export default async function SettingsPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   
   const { data: settings } = await supabase
     .from('clinic_settings')
