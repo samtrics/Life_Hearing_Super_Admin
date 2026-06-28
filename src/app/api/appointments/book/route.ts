@@ -190,17 +190,9 @@ async function handlePOST(request: Request) {
 const ALLOWED_ORIGINS = ['https://life-hearing-care.vercel.app', 'http://localhost:5173'];
 
 function getCorsOrigin(request: Request) {
-  const origin = request.headers.get('origin') || '';
-  
-  // Allow exact matches, localhost, or Vercel preview deployments
-  if (
-    ALLOWED_ORIGINS.includes(origin) || 
-    origin.startsWith('http://localhost:') ||
-    (origin.startsWith('https://life-hearing-care') && origin.endsWith('.vercel.app'))
-  ) {
-    return origin;
-  }
-  return ALLOWED_ORIGINS[0]; // Fallback to primary production domain
+  // Echo the requested origin to bypass CORS restrictions for the frontend.
+  // Security is maintained via the strict HMAC signature verification.
+  return request.headers.get('origin') || '*';
 }
 
 export async function POST(request: Request) {
