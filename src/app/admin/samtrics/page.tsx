@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
-import { Activity, ShieldCheck, Zap, Globe, AlertTriangle, ArrowUpRight, ArrowDownRight, Clock, Users, Database } from 'lucide-react'
+import { Activity, ShieldCheck, Zap, Globe, AlertTriangle, ArrowUpRight, ArrowDownRight, Clock, Users, Database, CheckCircle2 } from 'lucide-react'
 import { motion } from 'framer-motion'
-
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
