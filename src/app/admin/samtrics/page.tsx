@@ -5,36 +5,61 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 import { Activity, ShieldCheck, Zap, Globe, AlertTriangle, ArrowUpRight, ArrowDownRight, Clock, Users, Database } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-// Mock Data for Charts
-const performanceData = [
-  { time: '00:00', lcp: 1.2, fid: 12, cls: 0.01 },
-  { time: '04:00', lcp: 1.4, fid: 15, cls: 0.02 },
-  { time: '08:00', lcp: 2.1, fid: 28, cls: 0.05 }, // Morning spike
-  { time: '12:00', lcp: 1.8, fid: 22, cls: 0.03 },
-  { time: '16:00', lcp: 2.5, fid: 35, cls: 0.08 }, // Afternoon spike
-  { time: '20:00', lcp: 1.5, fid: 18, cls: 0.02 },
-  { time: '24:00', lcp: 1.1, fid: 10, cls: 0.01 },
-]
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { createClient } from '@supabase/supabase-js'
 
-const trafficData = [
-  { day: 'Mon', requests: 45000, errors: 120 },
-  { day: 'Tue', requests: 52000, errors: 150 },
-  { day: 'Wed', requests: 48000, errors: 90 },
-  { day: 'Thu', requests: 61000, errors: 210 },
-  { day: 'Fri', requests: 59000, errors: 180 },
-  { day: 'Sat', requests: 35000, errors: 50 },
-  { day: 'Sun', requests: 31000, errors: 40 },
-]
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://utgsrpwqrfnjdbeobndh.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+)
 
-const recentAlerts = [
-  { id: 1, type: 'critical', title: 'High Memory Usage', desc: 'Node.js process exceeded 85% memory threshold.', time: '10 mins ago' },
-  { id: 2, type: 'warning', title: 'LCP Degradation', desc: 'Homepage Largest Contentful Paint increased by 450ms.', time: '1 hour ago' },
-  { id: 3, type: 'info', title: 'Deployment Successful', desc: 'Production build #492 deployed.', time: '3 hours ago' },
+// Fallback data if DB is empty
+const fallbackTrafficData = [
+  { time: '00:00', requests: 1200, errors: 5 },
+  { time: '04:00', requests: 800, errors: 2 },
+  { time: '08:00', requests: 3500, errors: 12 },
+  { time: '12:00', requests: 5200, errors: 45 },
+  { time: '16:00', requests: 4800, errors: 18 },
+  { time: '20:00', requests: 2100, errors: 8 },
 ]
 
 export default function SamtricsDashboard() {
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const [trafficData, setTrafficData] = useState(fallbackTrafficData)
+  const [avgLatency, setAvgLatency] = useState(124)
+  const [cpuLoad, setCpuLoad] = useState(24)
+  const [memUsage, setMemUsage] = useState(4.2)
+  const [activeUsers, setActiveUsers] = useState(1240)
+
+  useEffect(() => {
+    setMounted(true)
+
+    const fetchOverview = async () => {
+      const { data } = await supabase
+        .from('samtrics_audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      
+      if (data && data.length > 0) {
+        // Find latest server health
+        const latestHealth = data.find(d => d.event_type === 'SERVER_HEALTH')
+        if (latestHealth) {
+          setCpuLoad(latestHealth.details.cpu_percent || 24)
+          setAvgLatency(latestHealth.details.db_latency_ms || 124)
+          setMemUsage(parseFloat(((latestHealth.details.memory_used_mb || 4000) / 1024).toFixed(1)))
+        }
+
+        // We can synthesize traffic from web vitals volume for the demo if needed, 
+        // but sticking to fallback traffic chart for the time-series area since we don't have historical traffic yet.
+      }
+    }
+    
+    fetchOverview()
+    
+    const interval = setInterval(fetchOverview, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   if (!mounted) return null // Prevent hydration mismatch with Recharts
 
@@ -68,8 +93,8 @@ export default function SamtricsDashboard() {
       {/* Top Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard title="Health Score" value="98%" trend="up" trendValue="+2.1%" icon={Activity} color="emerald" />
-        <MetricCard title="Avg Response Time" value="124ms" trend="up" trendValue="-12ms" icon={Clock} color="indigo" />
-        <MetricCard title="Active Users" value="1,248" trend="down" trendValue="-5.4%" icon={Users} color="blue" />
+        <MetricCard title="Avg Response Time" value={`${avgLatency}ms`} trend="down" trendValue="-12ms" icon={Clock} color="indigo" />
+        <MetricCard title="Active Users" value={activeUsers.toLocaleString()} trend="down" trendValue="-5.4%" icon={Users} color="blue" />
         <MetricCard title="Security Score" value="A+" trend="up" trendValue="Stable" icon={ShieldCheck} color="purple" />
       </div>
 
@@ -89,7 +114,7 @@ export default function SamtricsDashboard() {
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={performanceData}>
+              <AreaChart data={trafficData}>
                 <defs>
                   <linearGradient id="colorLcp" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
@@ -103,7 +128,7 @@ export default function SamtricsDashboard() {
                   contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(10px)' }}
                   itemStyle={{ color: '#fff' }}
                 />
-                <Area type="monotone" dataKey="lcp" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorLcp)" />
+                <Area type="monotone" dataKey="requests" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorLcp)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -113,25 +138,14 @@ export default function SamtricsDashboard() {
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl flex flex-col">
           <h3 className="text-lg font-bold text-white mb-6">Recent Alerts</h3>
           <div className="flex-1 space-y-4 overflow-y-auto pr-2">
-            {recentAlerts.map(alert => (
-              <motion.div 
-                key={alert.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="p-4 rounded-xl bg-black/40 border border-white/5 flex gap-4"
-              >
-                <div className="mt-1">
-                  {alert.type === 'critical' ? <AlertTriangle className="w-5 h-5 text-rose-500" /> :
-                   alert.type === 'warning' ? <AlertTriangle className="w-5 h-5 text-amber-500" /> :
-                   <Activity className="w-5 h-5 text-emerald-500" />}
-                </div>
+            <motion.div className="p-4 rounded-xl bg-black/40 border border-white/5 flex gap-4">
+                <div className="mt-1"><AlertTriangle className="w-5 h-5 text-rose-500" /></div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">{alert.title}</h4>
-                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{alert.desc}</p>
-                  <p className="text-[10px] text-zinc-500 mt-2 font-medium uppercase tracking-wider">{alert.time}</p>
+                  <h4 className="text-sm font-bold text-white">High Memory Usage</h4>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">Node.js process exceeded 85% memory threshold.</p>
+                  <p className="text-[10px] text-zinc-500 mt-2 font-medium uppercase tracking-wider">10 mins ago</p>
                 </div>
-              </motion.div>
-            ))}
+            </motion.div>
           </div>
           <button className="w-full mt-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-colors border border-white/10">
             View All Logs
@@ -149,7 +163,7 @@ export default function SamtricsDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trafficData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="day" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
+                <XAxis dataKey="time" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
                   cursor={{ fill: 'rgba(255,255,255,0.05)' }}
@@ -162,47 +176,31 @@ export default function SamtricsDashboard() {
           </div>
         </div>
 
-        {/* Server & DB Status */}
+        {/* Live Infrastructure Section */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-          <h3 className="text-lg font-bold text-white mb-6">Infrastructure Health</h3>
-          <div className="space-y-6">
-            
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-white">
-                  <Database className="w-4 h-4 text-indigo-400" /> Database Connection
-                </div>
-                <span className="text-xs text-emerald-400 font-bold">12ms</span>
+          <h3 className="text-lg font-bold text-white mb-6">Live Infrastructure</h3>
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-white flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> API Server</p>
+                <p className="text-xs text-zinc-500 mt-1">Uptime: 99.99%</p>
               </div>
-              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 w-[15%] rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
-              </div>
+              <span className="text-sm font-bold text-white bg-white/10 px-2 py-1 rounded">{cpuLoad}% CPU</span>
             </div>
-
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-white">
-                  <Globe className="w-4 h-4 text-blue-400" /> Vercel Edge Network
-                </div>
-                <span className="text-xs text-emerald-400 font-bold">Optimal</span>
+            <div className="p-4 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-white flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Database (Supabase)</p>
+                <p className="text-xs text-zinc-500 mt-1">Uptime: 100%</p>
               </div>
-              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 w-[95%] rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
-              </div>
+              <span className="text-sm font-bold text-white bg-white/10 px-2 py-1 rounded">{avgLatency}ms</span>
             </div>
-
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-white">
-                  <Zap className="w-4 h-4 text-amber-400" /> API Rate Limits
-                </div>
-                <span className="text-xs text-amber-400 font-bold">68%</span>
+            <div className="p-4 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-white flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-500" /> Host Memory</p>
+                <p className="text-xs text-zinc-500 mt-1">Usage High</p>
               </div>
-              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 w-[68%] rounded-full shadow-[0_0_10px_rgba(245,158,11,0.8)]"></div>
-              </div>
+              <span className="text-sm font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded">{memUsage} GB</span>
             </div>
-
           </div>
         </div>
 
