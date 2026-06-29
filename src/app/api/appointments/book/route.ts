@@ -65,7 +65,7 @@ async function handlePOST(request: Request) {
     const secretKey = process.env.VITE_API_SECRET;
     if (!secretKey) {
       console.error("CRITICAL: VITE_API_SECRET is not configured on the server.");
-      return NextResponse.json({ error: 'Internal Server Configuration Error' }, { status: 500 });
+      return NextResponse.json({ error: 'Internal Server Configuration Error (VITE_API_SECRET missing)' }, { status: 422 });
     }
     const expectedSignature = CryptoJS.HmacSHA256(rawBody, secretKey).toString(CryptoJS.enc.Hex);
     
@@ -181,9 +181,9 @@ async function handlePOST(request: Request) {
     }
 
     return NextResponse.json({ success: true, message: 'Appointment booked successfully' });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Server error (masked for security):', err);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: `Internal Error: ${err.message}` }, { status: 422 });
   }
 }
 
