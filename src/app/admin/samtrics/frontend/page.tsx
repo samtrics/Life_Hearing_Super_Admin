@@ -3,13 +3,18 @@
 import React, { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { MonitorPlay, LayoutTemplate, Type, Image as ImageIcon, Code, Box, AlertOctagon, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { createClient } from '@supabase/supabase-js'
 
-// Mock Data
-const vitalsData = [
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://utgsrpwqrfnjdbeobndh.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+)
+
+// Default baseline data in case DB is empty yet
+const fallbackVitalsData = [
   { time: '10:00', lcp: 1.1, fid: 12, cls: 0.01, ttfb: 45 },
   { time: '12:00', lcp: 1.3, fid: 14, cls: 0.02, ttfb: 50 },
-  { time: '14:00', lcp: 2.4, fid: 28, cls: 0.08, ttfb: 120 }, // Spike
+  { time: '14:00', lcp: 2.4, fid: 28, cls: 0.08, ttfb: 120 },
   { time: '16:00', lcp: 1.5, fid: 18, cls: 0.03, ttfb: 65 },
   { time: '18:00', lcp: 1.2, fid: 15, cls: 0.01, ttfb: 48 },
 ]
@@ -31,7 +36,38 @@ const issues = [
 
 export default function FrontendMonitor() {
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const [vitalsData, setVitalsData] = useState(fallbackVitalsData)
+
+  useEffect(() => {
+    setMounted(true)
+    
+    // Fetch live web vitals
+    const fetchVitals = async () => {
+      const { data } = await supabase
+        .from('samtrics_audit_logs')
+        .select('*')
+        .eq('event_type', 'WEB_VITALS')
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (data && data.length > 0) {
+        // Group by hour and average for the chart
+        // For simplicity in this demo, we'll map the raw events if there's enough data
+        if (data.length > 5) {
+           const mapped = data.reverse().map(d => ({
+             time: new Date(d.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+             lcp: d.details.metric_name === 'LCP' ? (d.details.metric_value / 1000).toFixed(2) : 1.2,
+             fid: d.details.metric_name === 'FID' ? d.details.metric_value : 12,
+             cls: d.details.metric_name === 'CLS' ? d.details.metric_value : 0.01,
+             ttfb: d.details.metric_name === 'TTFB' ? d.details.metric_value : 45
+           }))
+           setVitalsData(mapped)
+        }
+      }
+    }
+    fetchVitals()
+
+  }, [])
 
   if (!mounted) return null
 

@@ -3,12 +3,17 @@
 import React, { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Server, Database, Zap, Clock, CheckCircle2, XCircle } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { createClient } from '@supabase/supabase-js'
 
-const serverMemoryData = [
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://utgsrpwqrfnjdbeobndh.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+)
+
+const fallbackServerMemoryData = [
   { time: '10:00', memory: 450, cpu: 12 },
   { time: '12:00', memory: 480, cpu: 15 },
-  { time: '14:00', memory: 850, cpu: 45 }, // Peak
+  { time: '14:00', memory: 850, cpu: 45 },
   { time: '16:00', memory: 520, cpu: 18 },
   { time: '18:00', memory: 490, cpu: 14 },
 ]
@@ -22,7 +27,37 @@ const endpoints = [
 
 export default function BackendMonitor() {
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const [serverMemoryData, setServerMemoryData] = useState(fallbackServerMemoryData)
+
+  useEffect(() => {
+    setMounted(true)
+
+    const fetchServerHealth = async () => {
+      const { data } = await supabase
+        .from('samtrics_audit_logs')
+        .select('*')
+        .eq('event_type', 'SERVER_HEALTH')
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (data && data.length > 0) {
+        const mapped = data.reverse().map(d => ({
+          time: new Date(d.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+          memory: d.details.memory_used_mb || 0,
+          cpu: d.details.cpu_percent || 0
+        }))
+        setServerMemoryData(mapped)
+      }
+    }
+    fetchServerHealth()
+
+    // Poll health endpoint every 30 seconds
+    const interval = setInterval(() => {
+      fetch('/api/samtrics/health').then(() => fetchServerHealth())
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   if (!mounted) return null
 
