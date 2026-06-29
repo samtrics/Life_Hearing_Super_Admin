@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { MonitorPlay, LayoutTemplate, Type, Image as ImageIcon, Code, Box, AlertOctagon, CheckCircle2 } from 'lucide-react'
+import { MonitorPlay, LayoutTemplate, Type, Image as ImageIcon, Code, Box, AlertOctagon, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 // Mock Data
