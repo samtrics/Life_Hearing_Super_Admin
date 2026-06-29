@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json()
@@ -8,7 +18,7 @@ export async function POST(req: Request) {
 
     // Validate the incoming web vitals payload
     if (!name || typeof value !== 'number') {
-      return NextResponse.json({ error: 'Invalid metrics payload' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid metrics payload' }, { status: 400, headers: corsHeaders })
     }
 
     const supabase = createAdminClient()
@@ -34,12 +44,12 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error('Failed to log web vital:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { headers: corsHeaders })
   } catch (err: any) {
     console.error('Ingest API Error:', err.message)
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400, headers: corsHeaders })
   }
 }
