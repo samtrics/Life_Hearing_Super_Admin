@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { z } from 'zod';
 import CryptoJS from 'crypto-js';
-import DOMPurify from 'isomorphic-dompurify';
 
-// Helper to strictly sanitize all inputs, removing any injected scripts or HTML
-const sanitizeText = (val: string | undefined) => val ? DOMPurify.sanitize(val, { ALLOWED_TAGS: [] }) : val;
+// Lightweight HTML sanitization to avoid Vercel jsdom/DOMPurify crashes
+const sanitizeText = (val: string | undefined) => val ? val.replace(/<[^>]*>?/gm, '') : val;
 
 const bookingSchema = z.object({
   firstName: z.string().min(1).max(50).transform(sanitizeText),
