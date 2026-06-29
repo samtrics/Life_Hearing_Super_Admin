@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { MonitorPlay, LayoutTemplate, Type, Image as ImageIcon, Code, Box, AlertOctagon, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -56,7 +57,7 @@ export default function FrontendMonitor() {
         if (data.length > 5) {
            const mapped = data.reverse().map(d => ({
              time: new Date(d.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-             lcp: d.details.metric_name === 'LCP' ? (d.details.metric_value / 1000).toFixed(2) : 1.2,
+             lcp: d.details.metric_name === 'LCP' ? parseFloat((d.details.metric_value / 1000).toFixed(2)) : 1.2,
              fid: d.details.metric_name === 'FID' ? d.details.metric_value : 12,
              cls: d.details.metric_name === 'CLS' ? d.details.metric_value : 0.01,
              ttfb: d.details.metric_name === 'TTFB' ? d.details.metric_value : 45
