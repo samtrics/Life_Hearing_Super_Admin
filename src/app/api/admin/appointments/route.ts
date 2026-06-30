@@ -20,6 +20,12 @@ async function verifyAdminAuth(request: Request) {
     const { data } = await supabase.auth.getUser();
     user = data?.user;
   }
+  const allowedEmail = process.env.DOCTOR_EMAIL;
+  
+  if (!user || !allowedEmail || user.email?.toLowerCase() !== allowedEmail.toLowerCase()) {
+    return null; // Reject if no user or if email does not match admin email
+  }
+  
   return user;
 }
 
