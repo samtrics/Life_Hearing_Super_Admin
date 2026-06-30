@@ -28,12 +28,15 @@ export async function GET(request: Request) {
     }
     const supabase = await createClient();
 
+    // Use admin client to bypass RLS for fetching the appointments
+    const adminSupabase = createAdminClient();
+
     // Verify admin
     const authHeader = request.headers.get('Authorization');
     let user;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.replace('Bearer ', '');
-      const { data } = await supabase.auth.getUser(token);
+      const { data } = await adminSupabase.auth.getUser(token);
       user = data?.user;
     } else {
       const { data } = await supabase.auth.getUser();
@@ -44,8 +47,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Use admin client to bypass RLS for fetching the appointments
-    const adminSupabase = createAdminClient();
+    // Fetch using the admin client
     const { data, error } = await adminSupabase
       .from('appointments')
       .select('*')
