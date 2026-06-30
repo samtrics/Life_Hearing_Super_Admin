@@ -10,7 +10,7 @@ export const metadata = {
   title: 'Appointments Management - Admin Secure',
 }
 
-export const revalidate = 60 // ISR
+export const dynamic = 'force-dynamic'
 
 export default async function AppointmentsPage() {
   const supabase = createAdminClient()
