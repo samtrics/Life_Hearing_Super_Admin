@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 
 // Basic in-memory rate limiting for IP addresses (Max 100 requests per minute per IP for admin)
 const ipRateLimit = new Map<string, { count: number, timestamp: number }>();
@@ -28,12 +29,24 @@ export async function GET(request: Request) {
     const supabase = await createClient();
 
     // Verify admin
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = request.headers.get('Authorization');
+    let user;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data } = await supabase.auth.getUser(token);
+      user = data?.user;
+    } else {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user;
+    }
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS for fetching the appointments
+    const adminSupabase = createAdminClient();
+    const { data, error } = await adminSupabase
       .from('appointments')
       .select('*')
       .order('appointment_date', { ascending: false })
