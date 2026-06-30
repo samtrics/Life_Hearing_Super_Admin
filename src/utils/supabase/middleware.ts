@@ -53,6 +53,13 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
+  // Bypass Next.js middleware auth for legacy React API requests that use Bearer token via custom header.
+  // The route.ts file handles the Bearer token validation manually.
+  const legacyAuthHeader = request.headers.get('x-admin-auth') || request.headers.get('Authorization');
+  if (request.nextUrl.pathname.startsWith('/api/admin/appointments') && legacyAuthHeader?.startsWith('Bearer ')) {
+    return supabaseResponse
+  }
+
   // Use getUser() to securely validate the session with the Supabase auth server
   const {
     data: { user },

@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     const adminSupabase = createAdminClient();
 
     // Verify admin
-    const authHeader = request.headers.get('Authorization');
+    const authHeader = request.headers.get('x-admin-auth') || request.headers.get('Authorization');
     let user;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.replace('Bearer ', '');
