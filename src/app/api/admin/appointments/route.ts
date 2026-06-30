@@ -7,6 +7,22 @@ const ipRateLimit = new Map<string, { count: number, timestamp: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 100;
 
+async function verifyAdminAuth(request: Request) {
+  const authHeader = request.headers.get('x-admin-auth') || request.headers.get('Authorization');
+  let user;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.replace('Bearer ', '');
+    const adminSupabase = createAdminClient();
+    const { data } = await adminSupabase.auth.getUser(token);
+    user = data?.user;
+  } else {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data?.user;
+  }
+  return user;
+}
+
 export async function GET(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
@@ -26,28 +42,13 @@ export async function GET(request: Request) {
         ipRateLimit.set(ip, { count: 1, timestamp: now });
       }
     }
-    const supabase = await createClient();
 
-    // Use admin client to bypass RLS for fetching the appointments
-    const adminSupabase = createAdminClient();
-
-    // Verify admin
-    const authHeader = request.headers.get('x-admin-auth') || request.headers.get('Authorization');
-    let user;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data } = await adminSupabase.auth.getUser(token);
-      user = data?.user;
-    } else {
-      const { data } = await supabase.auth.getUser();
-      user = data?.user;
-    }
-
+    const user = await verifyAdminAuth(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch using the admin client
+    const adminSupabase = createAdminClient();
     const { data, error } = await adminSupabase
       .from('appointments')
       .select('*')
@@ -59,6 +60,41 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ appointments: data });
+  } catch (err) {
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await verifyAdminAuth(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    const body = await request.json();
+    const adminSupabase = createAdminClient();
+    const { data, error } = await adminSupabase.from('appointments').insert([body]).select();
+    
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, data });
+  } catch (err) {
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const user = await verifyAdminAuth(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await request.json();
+    const { id, ...updates } = body;
+    if (!id) return NextResponse.json({ error: 'Missing appointment ID' }, { status: 400 });
+
+    const adminSupabase = createAdminClient();
+    const { data, error } = await adminSupabase.from('appointments').update(updates).eq('id', id).select();
+    
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, data });
   } catch (err) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
