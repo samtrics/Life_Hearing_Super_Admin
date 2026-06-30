@@ -20,10 +20,17 @@ async function verifyAdminAuth(request: Request) {
     const { data } = await supabase.auth.getUser();
     user = data?.user;
   }
-  const allowedEmail = process.env.DOCTOR_EMAIL;
   
-  if (!user || !allowedEmail || user.email?.toLowerCase() !== allowedEmail.toLowerCase()) {
-    return null; // Reject if no user or if email does not match admin email
+  const allowedEmails = [
+    process.env.DOCTOR_EMAIL,
+    process.env.VITE_STAFF_EMAIL,
+    process.env.STAFF_EMAIL,
+    'admin@lifehearing.com', // Fallback for legacy React frontend
+    'doctor@lifehearing.com' // Fallback
+  ].filter(Boolean).map(e => e?.toLowerCase());
+  
+  if (!user || !user.email || !allowedEmails.includes(user.email.toLowerCase())) {
+    return null; // Reject if no user or if email does not match any admin email
   }
   
   return user;
