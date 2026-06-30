@@ -7,6 +7,27 @@ const ipRateLimit = new Map<string, { count: number, timestamp: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 100;
 
+async function checkRateLimit(request: Request) {
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  if (ip !== 'unknown') {
+    const now = Date.now();
+    const record = ipRateLimit.get(ip);
+    if (record) {
+      if (now - record.timestamp < RATE_LIMIT_WINDOW_MS) {
+        if (record.count >= MAX_REQUESTS_PER_WINDOW) {
+          return false; // Rate limit exceeded
+        }
+        record.count += 1;
+      } else {
+        ipRateLimit.set(ip, { count: 1, timestamp: now });
+      }
+    } else {
+      ipRateLimit.set(ip, { count: 1, timestamp: now });
+    }
+  }
+  return true;
+}
+
 async function verifyAdminAuth(request: Request) {
   const authHeader = request.headers.get('x-admin-auth') || request.headers.get('Authorization');
   let user;
@@ -38,22 +59,8 @@ async function verifyAdminAuth(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    if (ip !== 'unknown') {
-      const now = Date.now();
-      const record = ipRateLimit.get(ip);
-      if (record) {
-        if (now - record.timestamp < RATE_LIMIT_WINDOW_MS) {
-          if (record.count >= MAX_REQUESTS_PER_WINDOW) {
-            return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
-          }
-          record.count += 1;
-        } else {
-          ipRateLimit.set(ip, { count: 1, timestamp: now });
-        }
-      } else {
-        ipRateLimit.set(ip, { count: 1, timestamp: now });
-      }
+    if (!(await checkRateLimit(request))) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
     }
 
     const user = await verifyAdminAuth(request);
@@ -80,6 +87,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    if (!(await checkRateLimit(request))) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    }
+
     const user = await verifyAdminAuth(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     
@@ -96,6 +107,10 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    if (!(await checkRateLimit(request))) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    }
+
     const user = await verifyAdminAuth(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
